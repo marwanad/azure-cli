@@ -61,6 +61,66 @@ class TestValidateIPRanges(unittest.TestCase):
         self.assertEqual(str(cm.exception), err)
 
 
+class TestClusterAutoscalerParamsValidators(unittest.TestCase):
+    def test_invalid_param_format(self):
+        cluster_autoscaler_params = ["key"]
+        namespace = Namespace(cluster_autoscaler_params=cluster_autoscaler_params)
+        err = "Invalid cluster autoscaler parameter: key"
+
+        with self.assertRaises(CLIError) as cm:
+            validators.validate_cluster_autoscaler_params(namespace)
+        self.assertEqual(str(cm.exception), err)
+
+    def test_empty_value_for_valid_param(self):
+        cluster_autoscaler_params = ["scan-interval"]
+        namespace = Namespace(cluster_autoscaler_params=cluster_autoscaler_params)
+        err = "Invalid value specified for parameter: scan-interval"
+
+        with self.assertRaises(CLIError) as cm:
+            validators.validate_cluster_autoscaler_params(namespace)
+        self.assertEqual(str(cm.exception), err)
+
+    def test_regex_mismatch_for_valid_param(self):
+        cluster_autoscaler_params = ["scan-interval=-439"]
+        namespace = Namespace(cluster_autoscaler_params=cluster_autoscaler_params)
+        err = "Invalid value specified for parameter: scan-interval"
+
+        with self.assertRaises(CLIError) as cm:
+            validators.validate_cluster_autoscaler_params(namespace)
+        self.assertEqual(str(cm.exception), err)
+
+    def test_regex_match_for_valid_param(self):
+        cluster_autoscaler_params = ["scan-interval=20s"]
+        namespace = Namespace(cluster_autoscaler_params=cluster_autoscaler_params)
+
+        validators.validate_cluster_autoscaler_params(namespace)
+
+    def test_multiple_params_one_invalid(self):
+        cluster_autoscaler_params = ["scan-interval=20s", "some-invalid-paramter"]
+        namespace = Namespace(cluster_autoscaler_params=cluster_autoscaler_params)
+        err = "Invalid cluster autoscaler parameter: some-invalid-paramter"
+
+        with self.assertRaises(CLIError) as cm:
+            validators.validate_cluster_autoscaler_params(namespace)
+        self.assertEqual(str(cm.exception), err)
+
+    def test_multiple_params_one_invalid_value(self):
+        cluster_autoscaler_params = ["scan-interval=20s", "scale-down-unready-time=$%@#$"]
+        namespace = Namespace(cluster_autoscaler_params=cluster_autoscaler_params)
+        err = "Invalid value specified for parameter: scale-down-unready-time"
+
+        with self.assertRaises(CLIError) as cm:
+            validators.validate_cluster_autoscaler_params(namespace)
+        self.assertEqual(str(cm.exception), err)
+
+    def test_multiple_params_all_valid(self):
+        cluster_autoscaler_params = ["scan-interval=20s", "scale-down-unready-time=15m"]
+        namespace = Namespace(cluster_autoscaler_params=cluster_autoscaler_params)
+
+        validators.validate_cluster_autoscaler_params(namespace)
+
+
 class Namespace:
-    def __init__(self, api_server_authorized_ip_ranges):
+    def __init__(self, api_server_authorized_ip_ranges=None, cluster_autoscaler_params=None):
         self.api_server_authorized_ip_ranges = api_server_authorized_ip_ranges
+        self.cluster_autoscaler_params = cluster_autoscaler_params

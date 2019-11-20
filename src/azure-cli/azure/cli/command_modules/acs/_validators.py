@@ -13,6 +13,7 @@ from ipaddress import ip_network
 # pylint: disable=no-name-in-module,import-error
 from knack.log import get_logger
 
+from azure.cli.core.commands.validators import validate_tag
 from azure.cli.core.util import CLIError
 import azure.cli.core.keys as keys
 
@@ -224,3 +225,42 @@ def validate_taints(namespace):
 def validate_acr(namespace):
     if namespace.attach_acr and namespace.detach_acr:
         raise CLIError('Cannot specify "--attach-acr" and "--detach-acr" at the same time.')
+
+
+def validate_cluster_autoscaler_params(namespace):
+    """ Validates that cluster autoscaler parameters are acceptable by:
+        1. Extracting the key[=value] format to map
+        2. Validating the specified parameters
+    """
+    _extract_cluster_autoscaler_params(namespace)
+    for key, value in namespace.cluster_autoscaler_params.items():
+        _validate_cluster_autoscaler_param(key, value)
+
+
+def _validate_cluster_autoscaler_param(key, value):
+    supported_cas_parameters = {
+        "scan-interval": r"^\d+s$",
+        "scale-down-delay-after-add": r"^\d+m$",
+        "scale-down-delay-after-delete": r"^\d+s$",
+        "scale-down-delay-after-failure": r"^\d+m$",
+        "scale-down-unneeded-time": r"^\d+m$",
+        "scale-down-unready-time": r"^\d+m$",
+        "scale-down-utilization-threshold": r"^([0-9]*[.])?[0-9]+$",
+        "max-graceful-termination-sec": r"^\d+$",
+        "max-node-provision-time": r"^\d+m$"
+    }
+
+    if key not in supported_cas_parameters:
+        raise CLIError('Invalid cluster autoscaler parameter: %s' % key)
+
+    if not re.search(supported_cas_parameters[key], value):
+        raise CLIError('Invalid value specified for parameter: %s' % key)
+
+
+def _extract_cluster_autoscaler_params(namespace):
+    """ Extracts multiple space-separated cluster autoscaler parameters in key[=value] format """
+    if isinstance(namespace.cluster_autoscaler_params, list):
+        params_dict = {}
+        for item in namespace.cluster_autoscaler_params:
+            params_dict.update(validate_tag(item))
+        namespace.cluster_autoscaler_params = params_dict

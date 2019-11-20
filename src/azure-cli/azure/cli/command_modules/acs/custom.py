@@ -1615,6 +1615,7 @@ def aks_create(cmd, client, resource_group_name, name, ssh_key_value,  # pylint:
                vm_set_type=None,
                skip_subnet_role_assignment=False,
                enable_cluster_autoscaler=False,
+               cluster_autoscaler_params=None,
                network_plugin=None,
                network_policy=None,
                pod_cidr=None,
@@ -1671,7 +1672,8 @@ def aks_create(cmd, client, resource_group_name, name, ssh_key_value,  # pylint:
     if node_osdisk_size:
         agent_pool_profile.os_disk_size_gb = int(node_osdisk_size)
 
-    _check_cluster_autoscaler_flag(enable_cluster_autoscaler, min_count, max_count, node_count, agent_pool_profile)
+    _update_agent_pool_profile_with_autoscaler_properties(enable_cluster_autoscaler, min_count, max_count,
+                                                          node_count, cluster_autoscaler_params, agent_pool_profile)
 
     linux_profile = None
     # LinuxProfile is just used for SSH access to VMs, so omit it if --no-ssh-key was specified.
@@ -1963,6 +1965,7 @@ def aks_update(cmd, client, resource_group_name, name,
                enable_cluster_autoscaler=False,
                disable_cluster_autoscaler=False,
                update_cluster_autoscaler=False,
+               cluster_autoscaler_params=None,
                min_count=None, max_count=None,
                load_balancer_managed_outbound_ip_count=None,
                load_balancer_outbound_ips=None,
@@ -2008,6 +2011,8 @@ def aks_update(cmd, client, resource_group_name, name,
         instance.agent_pool_profiles[0].min_count = int(min_count)
         instance.agent_pool_profiles[0].max_count = int(max_count)
         instance.agent_pool_profiles[0].enable_auto_scaling = True
+        if cluster_autoscaler_params:
+            instance.agent_pool_profiles[0].auto_scaler_profile = cluster_autoscaler_params
 
     if update_cluster_autoscaler:
         if not instance.agent_pool_profiles[0].enable_auto_scaling:
@@ -2016,6 +2021,8 @@ def aks_update(cmd, client, resource_group_name, name,
                            'to enable cluster with min-count and max-count.')
         instance.agent_pool_profiles[0].min_count = int(min_count)
         instance.agent_pool_profiles[0].max_count = int(max_count)
+        if cluster_autoscaler_params:
+            instance.agent_pool_profiles[0].auto_scaler_profile = cluster_autoscaler_params
 
     if disable_cluster_autoscaler:
         if not instance.agent_pool_profiles[0].enable_auto_scaling:
@@ -2024,6 +2031,7 @@ def aks_update(cmd, client, resource_group_name, name,
         instance.agent_pool_profiles[0].enable_auto_scaling = False
         instance.agent_pool_profiles[0].min_count = None
         instance.agent_pool_profiles[0].max_count = None
+        instance.agent_pool_profiles[0].auto_scaler_profile = None
 
     subscription_id = get_subscription_id(cmd.cli_ctx)
 
@@ -2649,6 +2657,7 @@ def aks_agentpool_add(cmd, client, resource_group_name, cluster_name, nodepool_n
                       min_count=None,
                       max_count=None,
                       enable_cluster_autoscaler=False,
+                      cluster_autoscaler_params=None,
                       node_taints=None,
                       no_wait=False):
     instances = client.list(resource_group_name, cluster_name)
@@ -2686,7 +2695,8 @@ def aks_agentpool_add(cmd, client, resource_group_name, cluster_name, nodepool_n
         node_taints=taints_array
     )
 
-    _check_cluster_autoscaler_flag(enable_cluster_autoscaler, min_count, max_count, node_count, agent_pool)
+    _update_agent_pool_profile_with_autoscaler_properties(enable_cluster_autoscaler, min_count, max_count,
+                                                          node_count, cluster_autoscaler_params, agent_pool)
 
     if node_osdisk_size:
         agent_pool.os_disk_size_gb = int(node_osdisk_size)
@@ -2722,6 +2732,7 @@ def aks_agentpool_update(cmd, client, resource_group_name, cluster_name, nodepoo
                          enable_cluster_autoscaler=False,
                          disable_cluster_autoscaler=False,
                          update_cluster_autoscaler=False,
+                         cluster_autoscaler_params=None,
                          min_count=None, max_count=None,
                          no_wait=False):
 
@@ -2746,6 +2757,8 @@ def aks_agentpool_update(cmd, client, resource_group_name, cluster_name, nodepoo
         instance.min_count = int(min_count)
         instance.max_count = int(max_count)
         instance.enable_auto_scaling = True
+        if cluster_autoscaler_params:
+            instance.auto_scaler_profile = cluster_autoscaler_params
 
     if update_cluster_autoscaler:
         if not instance.enable_auto_scaling:
@@ -2754,6 +2767,8 @@ def aks_agentpool_update(cmd, client, resource_group_name, cluster_name, nodepoo
                            'to enable cluster with min-count and max-count.')
         instance.min_count = int(min_count)
         instance.max_count = int(max_count)
+        if cluster_autoscaler_params:
+            instance.auto_scaler_profile = cluster_autoscaler_params
 
     if disable_cluster_autoscaler:
         if not instance.enable_auto_scaling:
@@ -2762,6 +2777,7 @@ def aks_agentpool_update(cmd, client, resource_group_name, cluster_name, nodepoo
         instance.enable_auto_scaling = False
         instance.min_count = None
         instance.max_count = None
+        instance.auto_scaler_profile = None
 
     return sdk_no_wait(no_wait, client.create_or_update, resource_group_name, cluster_name, nodepool_name, instance)
 
@@ -2956,11 +2972,12 @@ def _get_rg_location(ctx, resource_group_name, subscription_id=None):
     return rg.location
 
 
-def _check_cluster_autoscaler_flag(enable_cluster_autoscaler,
-                                   min_count,
-                                   max_count,
-                                   node_count,
-                                   agent_pool_profile):
+def _update_agent_pool_profile_with_autoscaler_properties(enable_cluster_autoscaler,
+                                                          min_count,
+                                                          max_count,
+                                                          node_count,
+                                                          cluster_autoscaler_params,
+                                                          agent_pool_profile):
     if enable_cluster_autoscaler:
         if min_count is None or max_count is None:
             raise CLIError('Please specify both min-count and max-count when --enable-cluster-autoscaler enabled')
@@ -2971,6 +2988,8 @@ def _check_cluster_autoscaler_flag(enable_cluster_autoscaler,
         agent_pool_profile.min_count = int(min_count)
         agent_pool_profile.max_count = int(max_count)
         agent_pool_profile.enable_auto_scaling = True
+        if cluster_autoscaler_params:
+            agent_pool_profile.auto_scaler_profile = cluster_autoscaler_params
     else:
         if min_count is not None or max_count is not None:
             raise CLIError('min-count and max-count are required for --enable-cluster-autoscaler, please use the flag')
