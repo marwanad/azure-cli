@@ -256,6 +256,10 @@ parameters:
     type: bool
     short-summary: Enable cluster autoscaler, default value is false.
     long-summary: If specified, please make sure the kubernetes version is larger than 1.10.6.
+  - name: --cluster-autoscaler-params
+    type: list
+    short-summary: Space-separated list of key=value pairs for configuring cluster autoscaler.
+    long-summary: The following flags are supported #TODO: add flags
   - name: --min-count
     type: int
     short-summary: Minimum nodes count used for autoscaler, when "--enable-cluster-autoscaler" specified. Please specify the value in the range of [1, 100].
@@ -354,6 +358,10 @@ parameters:
   - name: --update-cluster-autoscaler -u
     type: bool
     short-summary: Update min-count or max-count for cluster autoscaler.
+  - name: --cluster-autoscaler-params
+    type: list
+    short-summary: Space-separated list of key=value pairs for configuring cluster autoscaler.
+    long-summary: The following flags are supported #TODO: add flags
   - name: --min-count
     type: int
     short-summary: Minimum nodes count used for autoscaler, when "--enable-cluster-autoscaler" specified. Please specify the value in the range of [1, 100]
@@ -582,6 +590,10 @@ parameters:
   - name: --enable-cluster-autoscaler -e
     type: bool
     short-summary: Enable cluster autoscaler.
+  - name: --cluster-autoscaler-params
+    type: list
+    short-summary: Space-separated list of key=value pairs for configuring cluster autoscaler.
+    long-summary: The following flags are supported #TODO: add flags
   - name: --min-count
     type: int
     short-summary: Minimum nodes count used for autoscaler, when "--enable-cluster-autoscaler" specified. Please specify the value in the range of [1, 100]
@@ -630,6 +642,10 @@ parameters:
   - name: --update-cluster-autoscaler -u
     type: bool
     short-summary: Update min-count or max-count for cluster autoscaler.
+  - name: --cluster-autoscaler-params
+    type: list
+    short-summary: Space-separated list of key=value pairs for configuring cluster autoscaler.
+    long-summary: The following flags are supported #TODO: add flags
   - name: --min-count
     type: int
     short-summary: Minimum nodes count used for autoscaler, when "--enable-cluster-autoscaler" specified. Please specify the value in the range of [1, 100]
